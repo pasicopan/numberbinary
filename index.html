@@ -1,0 +1,283 @@
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@3.3.7/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+      .center-block {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .tips{
+        color:#999;
+      }
+    </style>
+  </head>
+  <body>
+      <nav class="navbar navbar-default">
+          <div class="container">
+            <div class="navbar-header">
+              <!-- The mobile navbar-toggle button can be safely removed since you do not need it in a non-responsive implementation -->
+              <a class="navbar-brand" href="#">压缩页面滚动坐标</a>
+            </div>
+          </div>
+        </nav>
+        <div class="container">
+
+        <h3>简易压缩运算器</h3>
+        <div class="form-group">
+          <label for="posTextarea">输入：坐标数字，英文逗号分隔,取值范围是0~999</label>
+          <div class="input-group">
+            <input class="form-control" id="posTextarea" placeholder="例如：5,100,100,100,310,310,311,1000">
+            <div class="input-group-addon">
+              <span id="lenOrigin"></span>
+              <span>字节</span>
+            </div>
+          </div>
+        </div>
+        
+        <button class="btn btn-primary center-block" id="transformBtn">开始压缩</button>
+
+        <div class="form-group">
+            <label for="posZipTextarea">输出：压缩连续重复值</label>
+            <div class="input-group">
+              <input class="form-control" id="posZipTextarea" placeholder="">
+              <div class="input-group-addon">
+                <span id="lenZipcom"></span>
+                <span>字节</span>
+              </div>
+            </div>
+        </div>
+        <div class="form-group">
+          <label for="posBinaryTextarea">输出：删去间隔符,约定10bit 分割，字符转2进制</label>
+          <div class="input-group">
+          <input class="form-control" id="posBinaryTextarea" placeholder="">
+            <div class="input-group-addon">
+              <span id="lenBinary"></span>
+              <span>字节</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+            <label for="posBinaryTextarea">服务器收到字节数为：</label>
+            <span id="lenFrmoServer"></span>
+            <span>字节</span>
+        </div>
+        <div class="form-group">
+            <label for="posBinaryTextarea">服务器解释数据为：</label>
+            <span id="arrFrmoServer"></span>
+        </div>
+        <div class="form-group">
+            <label for="">压缩 / 原始：</label>
+            <span id="yasuobi"></span>
+            <span>%</span>
+        </div>
+        <hr>
+        <h3>简述压缩还原步骤</h3>
+        <h4>压缩步骤：</h4>
+        <ol>
+          <li>按比例压缩后，确保坐标数字小于1000.（简易运算器不包含）</li>
+          <li>连续相同的数字，转为：数字+重复数</li>
+          <li>“重复数”改为24进制，并映射到1000~1023</li>
+          <li>把“坐标数”和“重复数” 转用10bit 的2进制保存</li>
+          <li>删除“,” 间隔符</li>
+          <li>合并全部2进制数据，每8位提取出来构成新字符</li>
+          <li>输出新字符</li>
+        </ol>
+        <h4>还原步骤：</h4>
+        <ol>
+          <li>将字符串解析为2进制数据</li>
+          <li>每10bit 提取出来构成1 个1024 以内的数字</li>
+          <li>1000~1023 的数字根据映射关系，得到24进制的数据</li>
+          <li>根据24进制的数据，创建连续出现的坐标数字</li>
+        </ol>
+      <p>
+        <a herf="/#">更详细的分析说明：点这里</a>
+      </p>
+      <p>
+        <a herf="/#">github 地址：点这里</a>
+      </p>
+      </div>
+  </body>
+  </html>
+<script>
+
+  /*
+   * getDuplicateTimesMap
+   * @description 返回24 进制到1000~1023 的映射
+   * @return {object} map
+   */ 
+  function getDuplicateTimesMap(){
+    var map = {}
+    for(var i = 0;i<24 ;i++){
+      var key = i.toString(24);
+      var v = i + 1000;
+      map[key] = v;
+    }
+    console.log('DUPLICATETIMESMAP=',map);
+    return map
+  }
+   /*
+   * getDuplicateString
+   * @description 10 进制重复数标志位转换成24进制，再转为1000~1023
+   * @params {number}
+   * @return {array}
+   */  
+   var DUPLICATETIMESMAP = getDuplicateTimesMap()
+   function getDuplicateString(number){
+     var radix24 = number.toString(24);
+     var resultArr = radix24.split('').map(n=>DUPLICATETIMESMAP[n]);
+     console.log('getDuplicateString resultArr=',resultArr);
+     return resultArr
+   }
+  /*
+   * getBinaryArr
+   * @description 10进制数字字符串数组 ['4','9'],转为10bit 2进制数字字符串数组 ['0000000100','0000001001']
+   * @params {array<string>} intStringArr
+   * @return {array<string>}
+   */
+  var BITLEN = 10;
+  function getBinaryArr(intStringArr){
+    console.log('intStringArr=',intStringArr);
+    var binaryStringArr = intStringArr.map(i=>{
+      var r = parseInt(i).toString(2)
+      while(r.length<BITLEN){
+        r = '0' + r;
+      }
+      return r
+    });
+    console.log('getBinaryArr binaryStringArr=',binaryStringArr);
+
+    return binaryStringArr
+  }
+  /*
+   * binaryStringArrToBinary
+   * @description 2进制数字字符串数组 ['0000000100','0000001001'],连接后转为8bit 2进制字符串
+   * @params {array<string>} binaryStringArr
+   * @return {string}
+   */
+  var CHARBITLEN = 8
+  function binaryStringArrToBinary(binaryStringArr){
+    var binaryString = binaryStringArr.join('');
+    var charArr = [];
+    var sliceIndex = 0;
+    var len = binaryString.length-1;
+    while(sliceIndex<len){
+      var c = binaryString.slice(sliceIndex,sliceIndex+CHARBITLEN);
+      while(c.length<8){
+        c = c + '0';
+      }
+      charArr.push(c);
+      sliceIndex = sliceIndex + CHARBITLEN
+    }
+    
+    // console.log('binaryStringArrToBinary charArr=',charArr);
+    var resultString = charArr.map(c=>String.fromCharCode(parseInt(c,2))).join('');
+    console.log('binaryStringArrToBinary resultString=',resultString);
+
+    return resultString
+  }
+  /*
+   * zipDuplicate
+   * @description 压缩连续重复的数据
+   * @return {array}
+   */
+  function zipDuplicate(intArr){
+    var resultArr = []
+    var duplicateTimes = 0;
+    intArr.forEach((intData,intDataIndex) => {
+      if(intDataIndex ==0) {
+        resultArr.push(intData)
+      }else if(intData===intArr[intDataIndex-1]){
+        duplicateTimes++;
+      }else if(duplicateTimes===0){
+        resultArr.push(intData)
+      }else{
+        resultArr.push(...getDuplicateString(duplicateTimes))
+        duplicateTimes=0
+        resultArr.push(intData)
+      }
+    });
+    console.log('zipDuplicate resultArr=',resultArr);
+    return resultArr;
+  }
+
+  /*
+   * postToServer
+   * @description 发送数据到服务器
+   */
+  function postToServer(string){    
+    var xmlhttp=new XMLHttpRequest();
+    xmlhttp.onreadystatechange=function(){
+    if (xmlhttp.readyState==4 && xmlhttp.status==200)
+      {
+        var o = JSON.parse(xmlhttp.responseText)
+        arrFrmoServer.innerHTML=o.arr;
+        lenFrmoServer.innerHTML=o.len;
+      }
+    }
+    lenFrmoServer
+    xmlhttp.open("POST","/",true);
+    xmlhttp.setRequestHeader("Content-type","text/plain;");
+    xmlhttp.send(string);
+  }
+
+  /*
+   * transform
+   * @description 压缩数据并展示结果
+   */
+  function transform(){
+    console.log('transform');
+    var originString = posTextarea.value
+    lenOrigin.innerHTML = originString.length    
+
+    if(originString.split(',').some(n=>parseInt(n)>999||parseInt(n)<0)){
+      alert('取值范围是0~999')
+      return;
+    }
+
+    var zipDuplicateArr = zipDuplicate(originString.split(','))
+    posZipTextarea.value = zipDuplicateArr.join(',')
+    lenZipcom.innerHTML = posZipTextarea.value.length
+
+    var binaryArr = getBinaryArr(zipDuplicateArr)
+    var binaryString = binaryStringArrToBinary(binaryArr)
+    posBinaryTextarea.value = binaryString
+    lenBinary.innerHTML = binaryString.length 
+    
+    yasuobi.innerHTML = (binaryString.length*100/originString.length).toFixed(2)
+    postToServer(binaryString)
+  }
+  
+  /*
+   * resetReady
+   * @description 
+   */
+   function resetReady(){
+      console.log('onchange');
+      lenOrigin.innerHTML = posTextarea.value.length
+      lenZipcom.innerHTML = '?'
+      posZipTextarea.value = ''
+      lenBinary.innerHTML = '?'
+      posBinaryTextarea.value = ''
+      lenFrmoServer.innerHTML = '?'
+      yasuobi.innerHTML = '?'
+   }
+  /*
+   * init
+   * @description init web page logic
+   */
+  function init(){
+    console.log('init');
+    resetReady();
+    posTextarea.onkeyup = resetReady
+    transformBtn.onclick = transform
+    posTextarea.value = "5,100,100,100,310,310,311,999"
+    transform()
+  }
+
+  init()
+</script>
+
